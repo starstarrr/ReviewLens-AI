@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: reviewlens-postgres
+    environment:
+      POSTGRES_DB: reviewlens
+      POSTGRES_USER: reviewlens
+      POSTGRES_PASSWORD: reviewlens
+    ports:
+      - "5432:5432"
+    volumes:
+      - reviewlens_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  reviewlens_postgres_data:
