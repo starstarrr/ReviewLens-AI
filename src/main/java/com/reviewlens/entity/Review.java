@@ -14,8 +14,9 @@ public class Review {
     @Column(name = "repository_url", nullable = false, length = 500)
     private String repositoryUrl;
 
-    @Column(nullable = false, length = 50)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ReviewStatus status;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
@@ -23,7 +24,7 @@ public class Review {
     protected Review() {
     }
 
-    public Review(String repositoryUrl, String status) {
+    public Review(String repositoryUrl, ReviewStatus status) {
         this.repositoryUrl = repositoryUrl;
         this.status = status;
         this.createdAt = OffsetDateTime.now();
@@ -37,7 +38,7 @@ public class Review {
         return repositoryUrl;
     }
 
-    public String getStatus() {
+    public ReviewStatus getStatus() {
         return status;
     }
 
@@ -45,7 +46,15 @@ public class Review {
         return createdAt;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(ReviewStatus status) {
         this.status = status;
+    }
+
+    public void setRepositoryUrl(String repositoryUrl) {
+        this.repositoryUrl = repositoryUrl;
+    }
+
+    public void setCreatedAt(OffsetDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }
