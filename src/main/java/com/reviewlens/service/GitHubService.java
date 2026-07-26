@@ -1,8 +1,12 @@
 package com.reviewlens.service;
 
 import com.reviewlens.dto.GitHubRepositoryResponse;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+
+import java.util.List;
 
 @Service
 public class GitHubService {
@@ -17,6 +21,9 @@ public class GitHubService {
                 .build();
     }
 
+    /**
+     * Retrieves information for a specific GitHub repository.
+     */
     public GitHubRepositoryResponse getRepository(
             String owner,
             String repositoryName) {
@@ -25,5 +32,26 @@ public class GitHubService {
                 .uri("/repos/{owner}/{repo}", owner, repositoryName)
                 .retrieve()
                 .body(GitHubRepositoryResponse.class);
+    }
+
+    /**
+     * Retrieves repositories accessible to the authenticated GitHub user.
+     */
+    public List<GitHubRepositoryResponse> getRepositories(
+            OAuth2AuthorizedClient authorizedClient) {
+
+        String accessToken = authorizedClient
+                .getAccessToken()
+                .getTokenValue();
+
+        return restClient.get()
+                .uri("/user/repos")
+                .header("Authorization", "Bearer " + accessToken)
+                .retrieve()
+                .body(
+                        new ParameterizedTypeReference<
+                                List<GitHubRepositoryResponse>>() {
+                        }
+                );
     }
 }
