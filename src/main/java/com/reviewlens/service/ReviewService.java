@@ -1,5 +1,6 @@
 package com.reviewlens.service;
 
+import com.reviewlens.dispatcher.AnalysisDispatcher;
 import com.reviewlens.dto.CreateReviewRequest;
 import com.reviewlens.dto.GitHubRepositoryResponse;
 import com.reviewlens.entity.Review;
@@ -14,15 +15,16 @@ public class ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final GitHubService gitHubService;
-    private final ReviewProcessor reviewProcessor;
+    private final AnalysisDispatcher analysisDispatcher;
 
     public ReviewService(
             ReviewRepository reviewRepository,
             GitHubService gitHubService,
-            ReviewProcessor reviewProcessor) {
+            AnalysisDispatcher analysisDispatcher) {
+
         this.reviewRepository = reviewRepository;
         this.gitHubService = gitHubService;
-        this.reviewProcessor = reviewProcessor;
+        this.analysisDispatcher = analysisDispatcher;
     }
 
     public Review createReview(CreateReviewRequest request) {
@@ -77,14 +79,14 @@ public class ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        reviewProcessor.processReview(savedReview.getId());
+        // Dispatch analysis task
+        analysisDispatcher.submit(savedReview.getId());
 
         return savedReview;
     }
 
     public Review getReview(Long id) {
         return reviewRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException(
-                        "Review not found: " + id));
+                .orElseThrow(() -> new RuntimeException("Review not found: " + id));
     }
 }
