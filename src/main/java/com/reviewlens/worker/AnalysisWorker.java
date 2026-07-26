@@ -1,4 +1,6 @@
-package com.reviewlens.service;
+package com.reviewlens.worker;
+
+import com.reviewlens.service.RepositoryCloneService;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -19,7 +21,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 @Service
-public class ReviewProcessor {
+public class AnalysisWorker {
 
     private final ReviewRepository reviewRepository;
     private final RepositoryCloneService repositoryCloneService;
@@ -29,7 +31,7 @@ public class ReviewProcessor {
     private final AiReviewRepository aiReviewRepository;
     private final ObjectMapper objectMapper;
 
-    public ReviewProcessor(
+    public AnalysisWorker(
             ReviewRepository reviewRepository,
             RepositoryCloneService repositoryCloneService,
             AnalysisEngine analysisEngine,

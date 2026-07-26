@@ -1,16 +1,16 @@
 package com.reviewlens.dispatcher;
 
-import com.reviewlens.service.ReviewProcessor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.reviewlens.worker.AnalysisWorker;
 
 @Service
 @RequiredArgsConstructor
 public class AnalysisDispatcher {
 
-    private final AnalysisWorker analysisworker;
+    private final AnalysisWorker analysisWorker;
 
     public void submit(Long reviewId) {
-        analysisworker.processReview(reviewId);
+        analysisWorker.processReview(reviewId);
     }
 }
