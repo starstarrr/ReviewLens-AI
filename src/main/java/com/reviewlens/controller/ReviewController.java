@@ -12,6 +12,8 @@ import com.reviewlens.repository.FindingRepository;
 import com.reviewlens.service.ReviewService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.core.type.TypeReference;
@@ -33,6 +35,7 @@ public class ReviewController {
             FindingRepository findingRepository,
             AiReviewRepository aiReviewRepository,
             ObjectMapper objectMapper) {
+
         this.reviewService = reviewService;
         this.findingRepository = findingRepository;
         this.aiReviewRepository = aiReviewRepository;
@@ -40,15 +43,20 @@ public class ReviewController {
     }
 
     /**
-     * Creates a new repository review.
+     * Creates a new repository review for the authenticated GitHub user.
      *
-     * @param request the repository review request
+     * @param request          the repository review request
+     * @param authorizedClient the authenticated GitHub OAuth client
      * @return the created review
      */
     @PostMapping
     public Review createReview(
-            @Valid @RequestBody CreateReviewRequest request) {
-        return reviewService.createReview(request);
+            @Valid @RequestBody CreateReviewRequest request,
+            @RegisteredOAuth2AuthorizedClient("github") OAuth2AuthorizedClient authorizedClient) {
+
+        return reviewService.createReview(
+                request,
+                authorizedClient);
     }
 
     /**
@@ -60,6 +68,7 @@ public class ReviewController {
     @GetMapping("/{id}")
     public Review getReview(
             @PathVariable Long id) {
+
         return reviewService.getReview(id);
     }
 
@@ -72,6 +81,7 @@ public class ReviewController {
     @GetMapping("/{id}/findings")
     public List<FindingResponse> getReviewFindings(
             @PathVariable Long id) {
+
         reviewService.getReview(id);
 
         return findingRepository
@@ -90,6 +100,7 @@ public class ReviewController {
     @GetMapping("/{id}/summary")
     public ReviewSummaryResponse getReviewSummary(
             @PathVariable Long id) {
+
         Review review = reviewService.getReview(id);
 
         var findings = findingRepository
@@ -136,6 +147,7 @@ public class ReviewController {
     @GetMapping("/{id}/ai-review")
     public AiReviewResponse getAiReview(
             @PathVariable Long id) {
+
         reviewService.getReview(id);
 
         AiReview aiReview = aiReviewRepository

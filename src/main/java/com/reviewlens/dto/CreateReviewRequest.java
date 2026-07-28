@@ -3,17 +3,14 @@ package com.reviewlens.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
-public class CreateReviewRequest {
+/**
+ * Represents a request to create a review for a GitHub repository.
+ *
+ * @param repositoryFullName repository name in owner/repository format
+ */
+public record CreateReviewRequest(
 
-    @NotBlank(message = "repositoryUrl is required")
-    @Pattern(regexp = "^https://github\\.com/[^/]+/[^/]+/?$", message = "repositoryUrl must be a valid GitHub repository URL")
-    private String repositoryUrl;
+        @NotBlank(message = "Repository full name is required") @Pattern(regexp = "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", message = "Repository must use the owner/repository format") String repositoryFullName
 
-    public String getRepositoryUrl() {
-        return repositoryUrl;
-    }
-
-    public void setRepositoryUrl(String repositoryUrl) {
-        this.repositoryUrl = repositoryUrl;
-    }
+) {
 }
