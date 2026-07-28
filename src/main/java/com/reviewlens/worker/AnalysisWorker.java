@@ -1,9 +1,5 @@
 package com.reviewlens.worker;
 
-import com.reviewlens.service.RepositoryCloneService;
-
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 import com.reviewlens.dto.AiReviewResult;
 import com.reviewlens.entity.AiReview;
 import com.reviewlens.entity.Finding;
@@ -12,16 +8,23 @@ import com.reviewlens.entity.ReviewStatus;
 import com.reviewlens.repository.AiReviewRepository;
 import com.reviewlens.repository.FindingRepository;
 import com.reviewlens.repository.ReviewRepository;
+import com.reviewlens.service.RepositoryCloneService;
 import com.reviewlens.service.ai.AiCodeReviewService;
 import com.reviewlens.service.analysis.AnalysisEngine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.file.Path;
 import java.util.List;
 
 @Service
 public class AnalysisWorker {
+
+    private static final Logger log = LoggerFactory.getLogger(AnalysisWorker.class);
 
     private final ReviewRepository reviewRepository;
     private final RepositoryCloneService repositoryCloneService;
@@ -39,6 +42,7 @@ public class AnalysisWorker {
             AiCodeReviewService aiCodeReviewService,
             AiReviewRepository aiReviewRepository,
             ObjectMapper objectMapper) {
+
         this.reviewRepository = reviewRepository;
         this.repositoryCloneService = repositoryCloneService;
         this.analysisEngine = analysisEngine;
@@ -51,37 +55,39 @@ public class AnalysisWorker {
     /**
      * Processes a repository review asynchronously.
      *
-     * The processing flow is:
-     * clone repository, analyze source files, save findings,
-     * generate an AI review, save the AI review,
-     * and update the final review status.
+     * Flow:
+     * clone repository -> analyze files -> save findings ->
+     * generate AI review -> save AI review -> mark completed.
      *
-     * @param reviewId the identifier of the review to process
+     * @param reviewId identifier of the review to process
      */
     @Async
     public void processReview(Long reviewId) {
+
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new RuntimeException(
+                .orElseThrow(() -> new IllegalArgumentException(
                         "Review not found: " + reviewId));
 
         try {
             updateStatus(review, ReviewStatus.CLONING);
 
-            System.out.println(
-                    "Cloning repository for review: " + reviewId);
+            log.info(
+                    "Cloning repository for review: {}",
+                    reviewId);
 
             Path repositoryPath = repositoryCloneService.cloneRepository(
                     review.getRepositoryUrl(),
                     reviewId);
 
-            System.out.println(
-                    "Repository cloned to: "
-                            + repositoryPath.toAbsolutePath());
+            log.info(
+                    "Repository cloned to: {}",
+                    repositoryPath.toAbsolutePath());
 
             updateStatus(review, ReviewStatus.ANALYZING);
 
-            System.out.println(
-                    "Analyzing repository for review: " + reviewId);
+            log.info(
+                    "Analyzing repository for review: {}",
+                    reviewId);
 
             List<Finding> findings = analysisEngine.analyzeRepository(
                     review,
@@ -89,66 +95,85 @@ public class AnalysisWorker {
 
             findingRepository.saveAll(findings);
 
-            System.out.println(
-                    "Saved "
-                            + findings.size()
-                            + " findings for review: "
-                            + reviewId);
+            log.info(
+                    "Saved {} findings for review: {}",
+                    findings.size(),
+                    reviewId);
 
-            System.out.println(
-                    "Generating AI review for review: " + reviewId);
+            log.info(
+                    "Generating AI review for review: {}",
+                    reviewId);
 
-            AiReviewResult aiResult = aiCodeReviewService.generateReview(review, findings);
+            long aiStartTime = System.currentTimeMillis();
 
-            AiReview aiReview = createAiReview(review, aiResult);
+            AiReviewResult aiResult = aiCodeReviewService.generateReview(
+                    review,
+                    findings);
+
+            long aiDuration = System.currentTimeMillis() - aiStartTime;
+
+            log.info(
+                    "AI review generated for review {} in {} ms",
+                    reviewId,
+                    aiDuration);
+
+            AiReview aiReview = createAiReview(
+                    review,
+                    aiResult);
 
             aiReviewRepository.save(aiReview);
 
-            System.out.println(
-                    "Saved AI review for review: " + reviewId);
+            log.info(
+                    "Saved AI review for review: {}",
+                    reviewId);
 
             updateStatus(review, ReviewStatus.COMPLETED);
 
-            System.out.println(
-                    "Review completed: " + reviewId);
+            log.info(
+                    "Review completed: {}",
+                    reviewId);
 
         } catch (InterruptedException exception) {
+
             Thread.currentThread().interrupt();
 
-            updateStatus(review, ReviewStatus.FAILED);
+            markReviewFailed(review, reviewId);
 
-            System.err.println(
-                    "Repository clone interrupted for review: "
-                            + reviewId);
+            log.error(
+                    "Repository clone interrupted for review: {}",
+                    reviewId,
+                    exception);
 
         } catch (Exception exception) {
-            updateStatus(review, ReviewStatus.FAILED);
 
-            System.err.println(
-                    "Review failed: "
-                            + reviewId
-                            + " - "
-                            + exception.getMessage());
+            markReviewFailed(review, reviewId);
 
-            exception.printStackTrace();
+            log.error(
+                    "Review failed: {}. Exception type: {}. Message: {}",
+                    reviewId,
+                    exception.getClass().getName(),
+                    exception.getMessage(),
+                    exception);
         }
     }
 
     /**
      * Creates a persistent AI review entity from the generated result.
      *
-     * Lists are serialized into JSON strings before being stored.
-     *
-     * @param review the associated repository review
-     * @param result the AI-generated result
-     * @return the AI review entity
+     * @param review associated repository review
+     * @param result AI-generated result
+     * @return AI review entity
+     * @throws JacksonException if list serialization fails
      */
     private AiReview createAiReview(
             Review review,
             AiReviewResult result) throws JacksonException {
-        String strengthsJson = objectMapper.writeValueAsString(result.strengths());
 
-        String risksJson = objectMapper.writeValueAsString(result.risks());
+        String strengthsJson = objectMapper.writeValueAsString(
+                result.strengths());
+
+        String risksJson = objectMapper.writeValueAsString(
+                result.risks());
 
         String recommendationsJson = objectMapper.writeValueAsString(
                 result.recommendations());
@@ -162,14 +187,38 @@ public class AnalysisWorker {
     }
 
     /**
+     * Marks a review as failed while preserving the original exception.
+     */
+    private void markReviewFailed(
+            Review review,
+            Long reviewId) {
+
+        try {
+            updateStatus(review, ReviewStatus.FAILED);
+
+            log.info(
+                    "Review status updated to FAILED: {}",
+                    reviewId);
+
+        } catch (Exception statusException) {
+
+            log.error(
+                    "Unable to update review {} to FAILED",
+                    reviewId,
+                    statusException);
+        }
+    }
+
+    /**
      * Updates and persists the current review status.
      *
-     * @param review the review being processed
-     * @param status the new processing status
+     * @param review review being processed
+     * @param status new processing status
      */
     private void updateStatus(
             Review review,
             ReviewStatus status) {
+
         review.setStatus(status);
         reviewRepository.save(review);
     }

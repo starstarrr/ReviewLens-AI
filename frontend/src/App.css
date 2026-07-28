@@ -273,3 +273,384 @@
       width: 100%;
     }
   }
+  /* ===========================
+   AI Review
+=========================== */
+
+.ai-review-card {
+    margin-top: 16px;
+    padding: 16px;
+    border: 1px solid #dfe3e8;
+    border-radius: 12px;
+    background: #fafbfd;
+  }
+  
+  .ai-review-card h5 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #172033;
+  }
+  
+  .ai-summary {
+    margin: 0;
+    line-height: 1.7;
+  }
+  
+  /* ===========================
+     Finding Groups
+  =========================== */
+  
+  .finding-group {
+    margin-bottom: 16px;
+    border: 1px solid #dfe3e8;
+    border-radius: 12px;
+    background: #ffffff;
+    overflow: hidden;
+  }
+  
+  .finding-group-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    list-style: none;
+    padding: 14px 18px;
+    background: #f8fafc;
+    font-weight: 600;
+    user-select: none;
+  }
+  
+  .finding-group-summary::-webkit-details-marker {
+    display: none;
+  }
+  
+  .finding-group-title {
+    font-size: 15px;
+    color: #172033;
+  }
+  
+  .finding-group-count {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #172033;
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  
+  .finding-group-content {
+    padding: 16px;
+  }
+  
+  .finding-item {
+    padding: 14px;
+    margin-bottom: 12px;
+    border: 1px solid #e6eaf0;
+    border-radius: 10px;
+    background: white;
+  }
+  
+  .finding-item:last-child {
+    margin-bottom: 0;
+  }
+  
+  .finding-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  
+  .finding-location {
+    color: #64748b;
+    font-size: 13px;
+  }
+  
+  /* ===========================
+     Severity
+  =========================== */
+  
+  .finding-severity {
+    padding: 4px 10px;
+    border-radius: 999px;
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  
+  .severity-critical {
+    background: #dc2626;
+  }
+  
+  .severity-high {
+    background: #ea580c;
+  }
+  
+  .severity-medium {
+    background: #ca8a04;
+  }
+  
+  .severity-low {
+    background: #16a34a;
+  }
+  
+  .severity-info {
+    background: #2563eb;
+  }
+  
+  .severity-unknown {
+    background: #6b7280;
+  }
+
+  /* ===========================
+   Platform Statistics
+=========================== */
+
+.platform-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 28px;
+  }
+  
+  .platform-stat {
+    padding: 16px;
+    border: 1px solid #dfe3e8;
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+  
+  .platform-stat strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #172033;
+    font-size: 1.35rem;
+  }
+  
+  .platform-stat span {
+    color: #697386;
+    font-size: 0.86rem;
+  }
+  
+  /* ===========================
+     Repository Details
+  =========================== */
+  
+  .repository-title-group {
+    min-width: 0;
+  }
+  
+  .review-status-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+  }
+  
+  .review-status-label {
+    margin: 0;
+    color: #172033;
+    font-weight: 700;
+  }
+  
+  .review-status-description {
+    margin: 6px 0 0;
+    color: #697386;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  
+  /* ===========================
+     Review Progress
+  =========================== */
+  
+  .review-progress {
+    height: 8px;
+    margin-top: 16px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e6ebf2;
+  }
+  
+  .review-progress-bar {
+    width: 45%;
+    height: 100%;
+    border-radius: inherit;
+    background: #31528a;
+    animation: review-progress-slide 1.3s ease-in-out infinite;
+  }
+  
+  @keyframes review-progress-slide {
+    0% {
+      transform: translateX(-110%);
+    }
+  
+    50% {
+      transform: translateX(110%);
+    }
+  
+    100% {
+      transform: translateX(230%);
+    }
+  }
+  
+  /* ===========================
+     Empty State
+  =========================== */
+  
+  .empty-state {
+    padding: 34px 24px;
+    border: 1px dashed #cfd6e1;
+    border-radius: 13px;
+    background: #fafbfd;
+    text-align: center;
+  }
+  
+  .empty-state h3 {
+    margin: 0;
+    color: #172033;
+  }
+  
+  .empty-state p {
+    margin: 10px 0 0;
+    color: #697386;
+    line-height: 1.6;
+  }
+  
+  /* ===========================
+     Review Results
+  =========================== */
+  
+  .review-result {
+    margin-top: 22px;
+  }
+  
+  .result-section {
+    margin-top: 22px;
+    padding-top: 22px;
+    border-top: 1px solid #e1e5eb;
+  }
+  
+  .result-section h4 {
+    margin: 0 0 16px;
+    color: #172033;
+    font-size: 1.05rem;
+  }
+  
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+  }
+  
+  .summary-item {
+    padding: 14px 10px;
+    border: 1px solid #dfe3e8;
+    border-radius: 10px;
+    background: #ffffff;
+    text-align: center;
+  }
+  
+  .summary-item span {
+    display: block;
+    margin-bottom: 6px;
+    color: #697386;
+    font-size: 0.78rem;
+  }
+  
+  .summary-item strong {
+    color: #172033;
+    font-size: 1.2rem;
+  }
+  
+  .ai-list ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  
+  .ai-list li {
+    margin: 8px 0;
+    color: #4f5969;
+    line-height: 1.6;
+  }
+  
+  .finding-group-summary::before {
+    content: "▸";
+    margin-right: 10px;
+    color: #697386;
+    transition: transform 150ms ease;
+  }
+  
+  .finding-group[open]
+    > .finding-group-summary::before {
+    transform: rotate(90deg);
+  }
+  
+  .finding-group-title {
+    flex: 1;
+  }
+  
+  .finding-item p {
+    margin: 8px 0 0;
+    color: #4f5969;
+    line-height: 1.6;
+  }
+  
+  .finding-location {
+    overflow-wrap: anywhere;
+    font-family:
+      ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      Monaco,
+      Consolas,
+      monospace;
+  }
+  
+  .finding-suggestion {
+    padding: 10px 12px;
+    border-left: 3px solid #31528a;
+    background: #f4f7fb;
+  }
+  
+  /* ===========================
+     Additional Responsive Rules
+  =========================== */
+  
+  @media (max-width: 850px) {
+    .summary-grid {
+      grid-template-columns:
+        repeat(3, minmax(0, 1fr));
+    }
+  }
+  
+  @media (max-width: 700px) {
+    .platform-stats {
+      grid-template-columns: 1fr;
+    }
+  
+    .review-status-header {
+      flex-direction: column;
+    }
+  
+    .summary-grid {
+      grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+    }
+  
+    .finding-heading {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 8px;
+    }
+  }
+  
+  @media (max-width: 430px) {
+    .summary-grid {
+      grid-template-columns: 1fr;
+    }
+  
+    .finding-group-content {
+      padding: 10px;
+    }
+  }

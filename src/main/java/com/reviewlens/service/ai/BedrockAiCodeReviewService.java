@@ -3,6 +3,7 @@ package com.reviewlens.service.ai;
 import com.reviewlens.dto.AiReviewResult;
 import com.reviewlens.entity.Finding;
 import com.reviewlens.entity.Review;
+import com.reviewlens.service.CodeSnippetReader;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import software.amazon.awssdk.services.bedrockruntime.model.ConverseResponse;
 import software.amazon.awssdk.services.bedrockruntime.model.InferenceConfiguration;
 import software.amazon.awssdk.services.bedrockruntime.model.Message;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -25,7 +27,8 @@ import java.util.stream.Collectors;
 @Primary
 public class BedrockAiCodeReviewService implements AiCodeReviewService {
 
-    private static final int MAX_FINDINGS_IN_PROMPT = 100;
+    private static final int MAX_FINDINGS_IN_PROMPT = 8;
+    private static final int SOURCE_CONTEXT_LINES = 8;
 
     private static final String SUMMARY_HEADER = "SUMMARY:";
     private static final String STRENGTHS_HEADER = "STRENGTHS:";
@@ -33,15 +36,21 @@ public class BedrockAiCodeReviewService implements AiCodeReviewService {
     private static final String RECOMMENDATIONS_HEADER = "RECOMMENDATIONS:";
 
     private final BedrockRuntimeClient bedrockRuntimeClient;
+    private final CodeSnippetReader codeSnippetReader;
     private final String modelId;
 
     public BedrockAiCodeReviewService(
             BedrockRuntimeClient bedrockRuntimeClient,
+            CodeSnippetReader codeSnippetReader,
             @Value("${reviewlens.ai.bedrock.model-id}") String modelId) {
 
         this.bedrockRuntimeClient = Objects.requireNonNull(
                 bedrockRuntimeClient,
                 "bedrockRuntimeClient must not be null");
+
+        this.codeSnippetReader = Objects.requireNonNull(
+                codeSnippetReader,
+                "codeSnippetReader must not be null");
 
         if (modelId == null || modelId.isBlank()) {
             throw new IllegalArgumentException(
@@ -93,7 +102,6 @@ public class BedrockAiCodeReviewService implements AiCodeReviewService {
         InferenceConfiguration inferenceConfiguration = InferenceConfiguration.builder()
                 .maxTokens(1_500)
                 .temperature(0.1F)
-                .topP(0.9F)
                 .build();
 
         ConverseRequest request = ConverseRequest.builder()
@@ -135,8 +143,8 @@ public class BedrockAiCodeReviewService implements AiCodeReviewService {
                 You are a senior software engineer performing a professional
                 repository code review.
 
-                Review the repository information and static-analysis findings
-                below.
+                Review the repository information, static-analysis findings,
+                and source-code snippets below.
 
                 Return your answer using exactly these four sections:
 
@@ -157,16 +165,45 @@ public class BedrockAiCodeReviewService implements AiCodeReviewService {
                 RECOMMENDATIONS:
                 - Write each specific and actionable recommendation as one
                   bullet point.
-                - Recommendations should correspond to the supplied findings.
+                - Recommendations should correspond to the supplied findings
+                  and source-code evidence.
 
                 Important rules:
 
                 - Use the section headings exactly as written.
                 - Do not use Markdown code fences.
                 - Do not add sections.
-                - Do not invent repository features or source-code behavior.
-                - Base the review only on the provided repository information
-                  and static-analysis findings.
+
+                - Base your review ONLY on the supplied repository
+                  information, findings, and source-code snippets.
+
+                - Every recommendation MUST be supported by the
+                  provided source code.
+
+                - Do NOT simply repeat the finding message.
+
+                - For every significant issue, explain what you
+                  actually observe in the supplied code snippet.
+
+                - Explicitly reference the source code whenever
+                  possible using phrases such as:
+                  • "The provided code snippet shows..."
+                  • "The highlighted code..."
+                  • "The supplied method..."
+                  • "The source code indicates..."
+
+                - Do not invent behavior that cannot be inferred
+                  from the provided snippet.
+
+                - Treat every snippet as local context only.
+                  Do not assume the rest of the repository.
+
+                - Explain WHY the code could become difficult to
+                  maintain instead of only describing the finding.
+
+                - Recommendations should be specific to the supplied
+                  code instead of generic best practices.
+
                 - Keep the response concise and professional.
 
                 Repository information:
@@ -188,13 +225,16 @@ public class BedrockAiCodeReviewService implements AiCodeReviewService {
                 .append(safeValue(review.getCreatedAt()))
                 .append('\n');
 
-        prompt.append("\nStatic-analysis findings:\n");
+        prompt.append("\nStatic-analysis findings and source evidence:\n");
 
         if (findings.isEmpty()) {
             prompt.append(
-                    "No static-analysis findings were produced.\n");
+                    "No static-analysis findings were produced. "
+                            + "No source snippets are available for review.\n");
             return prompt.toString();
         }
+
+        Path repositoryPath = buildRepositoryPath(review);
 
         int findingCount = Math.min(
                 findings.size(),
@@ -235,6 +275,11 @@ public class BedrockAiCodeReviewService implements AiCodeReviewService {
             prompt.append("- Existing suggestion: ")
                     .append(safeValue(finding.getSuggestion()))
                     .append('\n');
+
+            appendSourceSnippet(
+                    prompt,
+                    repositoryPath,
+                    finding);
         }
 
         if (findings.size() > MAX_FINDINGS_IN_PROMPT) {
@@ -246,6 +291,80 @@ public class BedrockAiCodeReviewService implements AiCodeReviewService {
         }
 
         return prompt.toString();
+    }
+
+    /**
+     * Builds the local path used by RepositoryCloneService:
+     * repositories/{reviewId}.
+     */
+    private Path buildRepositoryPath(Review review) {
+        if (review.getId() == null) {
+            throw new IllegalArgumentException(
+                    "Review ID is required to locate the cloned repository.");
+        }
+
+        return Path.of(
+                "repositories",
+                review.getId().toString());
+    }
+
+    /**
+     * Adds a source snippet for a finding when its file path and
+     * line number are available.
+     */
+    private void appendSourceSnippet(
+            StringBuilder prompt,
+            Path repositoryPath,
+            Finding finding) {
+
+        String filePath = finding.getFilePath();
+        Integer lineNumber = finding.getLineNumber();
+
+        prompt.append("""
+                - Source code:
+
+                  This source code produced the finding below.
+
+                  Base your reasoning primarily on this code.
+
+                  Explain what you observe in the code before giving a recommendation.
+
+                """);
+
+        if (filePath == null || filePath.isBlank()) {
+            prompt.append(
+                    "  Source snippet unavailable because the finding "
+                            + "does not contain a file path.\n");
+            return;
+        }
+
+        if (lineNumber == null || lineNumber < 1) {
+            prompt.append(
+                    "  Source snippet unavailable because the finding "
+                            + "does not contain a valid line number.\n");
+            return;
+        }
+
+        try {
+            String snippet = codeSnippetReader.readSnippet(
+                    repositoryPath,
+                    filePath,
+                    lineNumber,
+                    SOURCE_CONTEXT_LINES);
+
+            prompt.append(snippet.indent(2));
+
+            if (!snippet.endsWith("\n")) {
+                prompt.append('\n');
+            }
+
+        } catch (IllegalArgumentException
+                | IllegalStateException exception) {
+
+            prompt.append("  Source snippet unavailable: ")
+                    .append(safeValue(exception.getMessage()))
+                    .append('\n');
+        }
     }
 
     /**

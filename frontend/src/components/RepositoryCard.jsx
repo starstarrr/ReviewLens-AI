@@ -25,13 +25,41 @@ function RepositoryCard({
   const isStarting =
     startingReview === repositoryKey;
 
-  const reviewStatus = activeReview?.status;
+  const reviewStatus = String(
+    activeReview?.status || ""
+  ).toUpperCase();
+
   const reviewId = activeReview?.id;
+
+  const isReviewRunning = [
+    "QUEUED",
+    "CLONING",
+    "RUNNING",
+  ].includes(reviewStatus);
+
+  const isReviewCompleted =
+    reviewStatus === "COMPLETED";
+
+  const reviewButtonText = () => {
+    if (isStarting) {
+      return "Starting...";
+    }
+
+    if (isReviewRunning) {
+      return "Review Running...";
+    }
+
+    if (isReviewCompleted) {
+      return "Run Review Again";
+    }
+
+    return "Review Repository";
+  };
 
   return (
     <article className="repository-item">
       <div className="repository-header">
-        <div>
+        <div className="repository-title-group">
           <h3>{repository.name}</h3>
 
           {repositoryFullName !== repository.name && (
@@ -48,16 +76,16 @@ function RepositoryCard({
 
       <p className="repository-description">
         {repository.description ||
-          "No description provided."}
+          "No description provided for this repository."}
       </p>
 
       <div className="repository-actions">
         <button
           type="button"
           onClick={() => onStartReview(repository)}
-          disabled={isStarting}
+          disabled={isStarting || isReviewRunning}
         >
-          {isStarting ? "Starting..." : "Review"}
+          {reviewButtonText()}
         </button>
 
         {repositoryUrl && (
@@ -74,20 +102,33 @@ function RepositoryCard({
 
       {activeReview && (
         <div className="review-status-panel">
-          <p>
-            <strong>Review ID:</strong> {reviewId}
-          </p>
+          <div className="review-status-header">
+            <div>
+              <p className="review-status-label">
+                Review #{reviewId}
+              </p>
 
-          <p>
-            <strong>Status:</strong>{" "}
+              <p className="review-status-description">
+                {isReviewCompleted
+                  ? "Repository analysis completed."
+                  : reviewStatus === "FAILED"
+                    ? "Repository analysis failed."
+                    : "Repository analysis is currently in progress."}
+              </p>
+            </div>
+
             <span
-              className={`status-badge status-${String(
-                reviewStatus
-              ).toLowerCase()}`}
+              className={`status-badge status-${reviewStatus.toLowerCase()}`}
             >
-              {reviewStatus}
+              {reviewStatus || "UNKNOWN"}
             </span>
-          </p>
+          </div>
+
+          {isReviewRunning && (
+            <div className="review-progress">
+              <div className="review-progress-bar" />
+            </div>
+          )}
         </div>
       )}
 
