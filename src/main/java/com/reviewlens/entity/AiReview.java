@@ -11,6 +11,8 @@ public class AiReview {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(name = "s3_object_key")
+    private String s3ObjectKey;
 
     /**
      * The repository review associated with this AI-generated report.
@@ -128,4 +130,13 @@ public class AiReview {
     public Instant getCreatedAt() {
         return createdAt;
     }
+
+    public String getS3ObjectKey() {
+        return s3ObjectKey;
+    }
+
+    public void setS3ObjectKey(String s3ObjectKey) {
+        this.s3ObjectKey = s3ObjectKey;
+    }
+
 }

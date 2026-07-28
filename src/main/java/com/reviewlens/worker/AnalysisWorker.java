@@ -1,5 +1,6 @@
 package com.reviewlens.worker;
 
+import com.reviewlens.dto.AiReviewReport;
 import com.reviewlens.dto.AiReviewResult;
 import com.reviewlens.entity.AiReview;
 import com.reviewlens.entity.Finding;
@@ -9,6 +10,7 @@ import com.reviewlens.repository.AiReviewRepository;
 import com.reviewlens.repository.FindingRepository;
 import com.reviewlens.repository.ReviewRepository;
 import com.reviewlens.service.RepositoryCloneService;
+import com.reviewlens.service.S3Service;
 import com.reviewlens.service.ai.AiCodeReviewService;
 import com.reviewlens.service.analysis.AnalysisEngine;
 import org.slf4j.Logger;
@@ -33,6 +35,7 @@ public class AnalysisWorker {
     private final AiCodeReviewService aiCodeReviewService;
     private final AiReviewRepository aiReviewRepository;
     private final ObjectMapper objectMapper;
+    private final S3Service s3Service;
 
     public AnalysisWorker(
             ReviewRepository reviewRepository,
@@ -41,7 +44,8 @@ public class AnalysisWorker {
             FindingRepository findingRepository,
             AiCodeReviewService aiCodeReviewService,
             AiReviewRepository aiReviewRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            S3Service s3Service) {
 
         this.reviewRepository = reviewRepository;
         this.repositoryCloneService = repositoryCloneService;
@@ -50,16 +54,23 @@ public class AnalysisWorker {
         this.aiCodeReviewService = aiCodeReviewService;
         this.aiReviewRepository = aiReviewRepository;
         this.objectMapper = objectMapper;
+        this.s3Service = s3Service;
     }
 
     /**
      * Processes a repository review asynchronously.
      *
      * Flow:
-     * clone repository -> analyze files -> save findings ->
-     * generate AI review -> save AI review -> mark completed.
+     * 1. Clone repository
+     * 2. Analyze repository
+     * 3. Save static-analysis findings
+     * 4. Generate AI review
+     * 5. Generate JSON report
+     * 6. Upload JSON report to S3
+     * 7. Save AI review and S3 object key
+     * 8. Mark review as completed
      *
-     * @param reviewId identifier of the review to process
+     * @param reviewId ID of the review to process
      */
     @Async
     public void processReview(Long reviewId) {
@@ -69,6 +80,9 @@ public class AnalysisWorker {
                         "Review not found: " + reviewId));
 
         try {
+            /*
+             * Step 1: Clone repository
+             */
             updateStatus(review, ReviewStatus.CLONING);
 
             log.info(
@@ -83,6 +97,9 @@ public class AnalysisWorker {
                     "Repository cloned to: {}",
                     repositoryPath.toAbsolutePath());
 
+            /*
+             * Step 2: Run static analysis
+             */
             updateStatus(review, ReviewStatus.ANALYZING);
 
             log.info(
@@ -93,6 +110,9 @@ public class AnalysisWorker {
                     review,
                     repositoryPath);
 
+            /*
+             * Step 3: Save findings to PostgreSQL
+             */
             findingRepository.saveAll(findings);
 
             log.info(
@@ -100,6 +120,9 @@ public class AnalysisWorker {
                     findings.size(),
                     reviewId);
 
+            /*
+             * Step 4: Generate AI review
+             */
             log.info(
                     "Generating AI review for review: {}",
                     reviewId);
@@ -117,9 +140,49 @@ public class AnalysisWorker {
                     reviewId,
                     aiDuration);
 
+            /*
+             * Step 5: Build the formal report
+             */
+            AiReviewReport report = new AiReviewReport(
+                    review.getId(),
+                    review.getRepositoryUrl(),
+                    aiResult.summary(),
+                    aiResult.strengths(),
+                    aiResult.risks(),
+                    aiResult.recommendations());
+
+            /*
+             * Convert Java report object to JSON.
+             */
+            String reportJson = objectMapper.writeValueAsString(report);
+
+            /*
+             * Example:
+             * reviews/7/report.json
+             */
+            String objectKey = String.format(
+                    "reviews/%d/report.json",
+                    review.getId());
+
+            /*
+             * Step 6: Upload report JSON to S3
+             */
+            s3Service.uploadJson(
+                    objectKey,
+                    reportJson);
+
+            log.info(
+                    "Uploaded AI review report to S3 with key: {}",
+                    objectKey);
+
+            /*
+             * Step 7: Save AI review data and S3 key
+             */
             AiReview aiReview = createAiReview(
                     review,
                     aiResult);
+
+            aiReview.setS3ObjectKey(objectKey);
 
             aiReviewRepository.save(aiReview);
 
@@ -127,7 +190,12 @@ public class AnalysisWorker {
                     "Saved AI review for review: {}",
                     reviewId);
 
-            updateStatus(review, ReviewStatus.COMPLETED);
+            /*
+             * Step 8: Mark the entire review as completed
+             */
+            updateStatus(
+                    review,
+                    ReviewStatus.COMPLETED);
 
             log.info(
                     "Review completed: {}",
@@ -137,7 +205,9 @@ public class AnalysisWorker {
 
             Thread.currentThread().interrupt();
 
-            markReviewFailed(review, reviewId);
+            markReviewFailed(
+                    review,
+                    reviewId);
 
             log.error(
                     "Repository clone interrupted for review: {}",
@@ -146,7 +216,9 @@ public class AnalysisWorker {
 
         } catch (Exception exception) {
 
-            markReviewFailed(review, reviewId);
+            markReviewFailed(
+                    review,
+                    reviewId);
 
             log.error(
                     "Review failed: {}. Exception type: {}. Message: {}",
@@ -158,12 +230,14 @@ public class AnalysisWorker {
     }
 
     /**
-     * Creates a persistent AI review entity from the generated result.
+     * Creates an AiReview database entity from the generated AI result.
+     *
+     * Lists are stored as JSON strings in the database.
      *
      * @param review associated repository review
-     * @param result AI-generated result
-     * @return AI review entity
-     * @throws JacksonException if list serialization fails
+     * @param result generated AI review result
+     * @return persistent AI review entity
+     * @throws JacksonException if JSON serialization fails
      */
     private AiReview createAiReview(
             Review review,
@@ -187,14 +261,19 @@ public class AnalysisWorker {
     }
 
     /**
-     * Marks a review as failed while preserving the original exception.
+     * Marks the review as failed.
+     *
+     * @param review   review being processed
+     * @param reviewId ID of the failed review
      */
     private void markReviewFailed(
             Review review,
             Long reviewId) {
 
         try {
-            updateStatus(review, ReviewStatus.FAILED);
+            updateStatus(
+                    review,
+                    ReviewStatus.FAILED);
 
             log.info(
                     "Review status updated to FAILED: {}",
@@ -213,7 +292,7 @@ public class AnalysisWorker {
      * Updates and persists the current review status.
      *
      * @param review review being processed
-     * @param status new processing status
+     * @param status new status
      */
     private void updateStatus(
             Review review,
