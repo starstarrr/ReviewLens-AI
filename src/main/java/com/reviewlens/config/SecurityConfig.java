@@ -16,10 +16,12 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
+    private static final String DEFAULT_FRONTEND_URL = "http://localhost:5173";
+
     private final String frontendUrl;
 
     public SecurityConfig(
-            @Value("${reviewlens.frontend-url}") String frontendUrl) {
+            @Value("${reviewlens.frontend-url:http://localhost:5173}") String frontendUrl) {
 
         this.frontendUrl = removeTrailingSlash(frontendUrl);
     }
@@ -51,14 +53,8 @@ public class SecurityConfig {
                         .defaultSuccessUrl(
                                 frontendUrl,
                                 true)
-                        .failureHandler((request, response, exception) -> {
-
-                            System.err.println("===== OAuth FAILED =====");
-                            exception.printStackTrace();
-
-                            response.sendRedirect(
-                                    frontendUrl + "/?oauthError=true");
-                        }));
+                        .failureUrl(
+                                frontendUrl + "/?oauthError=true"));
 
         return http.build();
     }
@@ -104,10 +100,8 @@ public class SecurityConfig {
     private String removeTrailingSlash(
             String value) {
 
-        if (value == null
-                || value.isBlank()) {
-
-            return "http://localhost:5173";
+        if (value == null || value.isBlank()) {
+            return DEFAULT_FRONTEND_URL;
         }
 
         String normalizedValue = value.trim();
