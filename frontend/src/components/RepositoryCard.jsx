@@ -8,6 +8,7 @@ function RepositoryCard({
   summary,
   findings,
   aiReview,
+  reviewReport,
   loadingResults,
 }) {
   const repositoryFullName =
@@ -136,6 +137,7 @@ function RepositoryCard({
         summary={summary}
         findings={findings}
         aiReview={aiReview}
+        reviewReport={reviewReport}
         loadingResults={loadingResults}
       />
     </article>

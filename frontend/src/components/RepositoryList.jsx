@@ -8,6 +8,7 @@ function RepositoryList({
   reviewSummaries,
   reviewFindings,
   aiReviews,
+  reviewReports,
   loadingResults,
 }) {
   if (repositories.length === 0) {
@@ -43,6 +44,9 @@ function RepositoryList({
             }
             aiReview={
               aiReviews[repositoryKey] || null
+            }
+            reviewReport={
+              reviewReports[repositoryKey] || null
             }
             loadingResults={
               loadingResults[repositoryKey] || false

@@ -10,6 +10,7 @@ import com.reviewlens.entity.Review;
 import com.reviewlens.repository.AiReviewRepository;
 import com.reviewlens.repository.FindingRepository;
 import com.reviewlens.service.ReviewService;
+import com.reviewlens.service.S3Service;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
@@ -28,30 +29,35 @@ public class ReviewController {
     private final ReviewService reviewService;
     private final FindingRepository findingRepository;
     private final AiReviewRepository aiReviewRepository;
+    private final S3Service s3Service;
     private final ObjectMapper objectMapper;
 
     public ReviewController(
             ReviewService reviewService,
             FindingRepository findingRepository,
             AiReviewRepository aiReviewRepository,
+            S3Service s3Service,
             ObjectMapper objectMapper) {
 
         this.reviewService = reviewService;
         this.findingRepository = findingRepository;
         this.aiReviewRepository = aiReviewRepository;
+        this.s3Service = s3Service;
         this.objectMapper = objectMapper;
     }
 
     /**
      * Creates a new repository review for the authenticated GitHub user.
      *
-     * @param request          the repository review request
-     * @param authorizedClient the authenticated GitHub OAuth client
+     * @param request          repository review request
+     * @param authorizedClient authenticated GitHub OAuth client
      * @return the created review
      */
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public Review createReview(
             @Valid @RequestBody CreateReviewRequest request,
+
             @RegisteredOAuth2AuthorizedClient("github") OAuth2AuthorizedClient authorizedClient) {
 
         return reviewService.createReview(
@@ -62,7 +68,7 @@ public class ReviewController {
     /**
      * Returns a review by its identifier.
      *
-     * @param id the review identifier
+     * @param id review identifier
      * @return the requested review
      */
     @GetMapping("/{id}")
@@ -75,7 +81,7 @@ public class ReviewController {
     /**
      * Returns all findings generated for a review.
      *
-     * @param id the review identifier
+     * @param id review identifier
      * @return findings associated with the review
      */
     @GetMapping("/{id}/findings")
@@ -94,7 +100,7 @@ public class ReviewController {
     /**
      * Returns a summary of the review findings.
      *
-     * @param id the review identifier
+     * @param id review identifier
      * @return summary statistics for the review
      */
     @GetMapping("/{id}/summary")
@@ -139,10 +145,10 @@ public class ReviewController {
     }
 
     /**
-     * Returns the AI-generated report for a repository review.
+     * Returns the AI-generated review stored in the database.
      *
-     * @param id the repository review identifier
-     * @return the AI-generated review report
+     * @param id review identifier
+     * @return AI review data
      */
     @GetMapping("/{id}/ai-review")
     public AiReviewResponse getAiReview(
@@ -159,26 +165,68 @@ public class ReviewController {
         return new AiReviewResponse(
                 aiReview.getReview().getId(),
                 aiReview.getSummary(),
-                readJsonList(aiReview.getStrengths()),
-                readJsonList(aiReview.getRisks()),
-                readJsonList(aiReview.getRecommendations()),
+                readJsonList(
+                        aiReview.getStrengths()),
+                readJsonList(
+                        aiReview.getRisks()),
+                readJsonList(
+                        aiReview.getRecommendations()),
                 aiReview.getCreatedAt());
+    }
+
+    /**
+     * Returns the complete AI report stored in S3.
+     *
+     * @param id review identifier
+     * @return report JSON
+     */
+    @GetMapping(value = "/{id}/report", produces = "application/json")
+    public String getReport(
+            @PathVariable Long id) {
+
+        reviewService.getReview(id);
+
+        AiReview aiReview = aiReviewRepository
+                .findByReviewId(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "AI review not found for review: " + id));
+
+        String s3ObjectKey = aiReview.getS3ObjectKey();
+
+        if (s3ObjectKey == null
+                || s3ObjectKey.isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "S3 report not found for review: " + id);
+        }
+
+        return s3Service.downloadJson(
+                s3ObjectKey);
     }
 
     /**
      * Converts a JSON array stored in the database into a list of strings.
      *
-     * @param json JSON array text
-     * @return deserialized list
+     * @param json JSON array
+     * @return deserialized values
      */
-    private List<String> readJsonList(String json) {
+    private List<String> readJsonList(
+            String json) {
+
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+
         try {
             return objectMapper.readValue(
                     json,
                     new TypeReference<List<String>>() {
                     });
         } catch (Exception exception) {
-            throw new IllegalStateException(
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
                     "Failed to deserialize AI review data",
                     exception);
         }

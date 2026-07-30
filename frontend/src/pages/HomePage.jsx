@@ -19,6 +19,7 @@ import {
     getReviewSummary,
     getReviewFindings,
     getAiReview,
+    getReviewReport,
   } from "../api/reviewApi";
   
   const POLLING_INTERVAL_MS = 2000;
@@ -59,6 +60,9 @@ import {
       useState({});
   
     const [aiReviews, setAiReviews] =
+      useState({});
+  
+    const [reviewReports, setReviewReports] =
       useState({});
   
     const [loadingResults, setLoadingResults] =
@@ -164,6 +168,52 @@ import {
         delete updated[repositoryKey];
         return updated;
       });
+  
+      setReviewReports((current) => {
+        const updated = { ...current };
+        delete updated[repositoryKey];
+        return updated;
+      });
+    };
+  
+    const loadOptionalAiReview = async (
+      repositoryKey,
+      reviewId
+    ) => {
+      try {
+        const aiReviewData =
+          await getAiReview(reviewId);
+  
+        setAiReviews((current) => ({
+          ...current,
+          [repositoryKey]: aiReviewData,
+        }));
+      } catch (error) {
+        console.warn(
+          `AI review is unavailable for review ${reviewId}:`,
+          error
+        );
+      }
+    };
+  
+    const loadOptionalReviewReport = async (
+      repositoryKey,
+      reviewId
+    ) => {
+      try {
+        const reportData =
+          await getReviewReport(reviewId);
+  
+        setReviewReports((current) => ({
+          ...current,
+          [repositoryKey]: reportData,
+        }));
+      } catch (error) {
+        console.warn(
+          `Full report is unavailable for review ${reviewId}:`,
+          error
+        );
+      }
     };
   
     const loadReviewResults = async (
@@ -179,11 +229,9 @@ import {
         const [
           summaryData,
           findingsData,
-          aiReviewData,
         ] = await Promise.all([
           getReviewSummary(reviewId),
           getReviewFindings(reviewId),
-          getAiReview(reviewId),
         ]);
   
         setReviewSummaries((current) => ({
@@ -200,10 +248,16 @@ import {
             : [],
         }));
   
-        setAiReviews((current) => ({
-          ...current,
-          [repositoryKey]: aiReviewData,
-        }));
+        await Promise.allSettled([
+          loadOptionalAiReview(
+            repositoryKey,
+            reviewId
+          ),
+          loadOptionalReviewReport(
+            repositoryKey,
+            reviewId
+          ),
+        ]);
       } catch (error) {
         setReviewError(
           error.message ||
@@ -303,12 +357,18 @@ import {
             repositoryFullName
           );
   
+        if (!createdReview?.id) {
+          throw new Error(
+            "The backend did not return a review ID."
+          );
+        }
+  
         updateActiveReview(
           repositoryFullName,
           createdReview
         );
   
-        pollReviewStatus(
+        await pollReviewStatus(
           repositoryFullName,
           createdReview.id
         );
@@ -468,6 +528,7 @@ import {
                 reviewFindings
               }
               aiReviews={aiReviews}
+              reviewReports={reviewReports}
               loadingResults={
                 loadingResults
               }

@@ -654,3 +654,63 @@
       padding: 10px;
     }
   }
+
+  /* ===========================
+   Full Report Modal
+=========================== */
+
+.full-report-actions {
+    margin-top: 18px;
+  }
+  
+  .report-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 32px;
+    background: rgba(0, 0, 0, 0.45);
+  }
+  
+  .report-modal {
+    width: min(1000px, 95vw);
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: 14px;
+    background: #ffffff;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  }
+  
+  .report-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 22px;
+    border-bottom: 1px solid #dfe3e8;
+  }
+  
+  .report-modal-header h4 {
+    margin: 0;
+  }
+  
+  .full-report-json {
+    flex: 1;
+    margin: 0;
+    padding: 20px;
+    overflow: auto;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 13px;
+    line-height: 1.6;
+    font-family:
+      SFMono-Regular,
+      Consolas,
+      Monaco,
+      monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }

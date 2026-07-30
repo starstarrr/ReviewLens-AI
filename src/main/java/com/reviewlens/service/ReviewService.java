@@ -6,8 +6,10 @@ import com.reviewlens.dto.GitHubRepositoryResponse;
 import com.reviewlens.entity.Review;
 import com.reviewlens.entity.ReviewStatus;
 import com.reviewlens.repository.ReviewRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class ReviewService {
@@ -37,17 +39,22 @@ public class ReviewService {
             CreateReviewRequest request,
             OAuth2AuthorizedClient authorizedClient) {
 
-        String repositoryFullName = request.repositoryFullName();
+        String repositoryFullName = request.repositoryFullName().trim();
 
-        GitHubRepositoryResponse repository = gitHubService.getRepositories(authorizedClient)
+        GitHubRepositoryResponse repository = gitHubService
+                .getRepositories(authorizedClient)
                 .stream()
-                .filter(item -> item.getFullName()
-                        .equalsIgnoreCase(repositoryFullName))
+                .filter(item -> item.getFullName() != null
+                        && item.getFullName()
+                                .equalsIgnoreCase(
+                                        repositoryFullName))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
                         "Repository is not accessible to the authenticated GitHub user"));
 
-        String repositoryUrl = "https://github.com/" + repository.getFullName();
+        String repositoryUrl = "https://github.com/"
+                + repository.getFullName();
 
         Review review = new Review(
                 repositoryUrl,
@@ -55,7 +62,8 @@ public class ReviewService {
 
         Review savedReview = reviewRepository.save(review);
 
-        analysisDispatcher.submit(savedReview.getId());
+        analysisDispatcher.submit(
+                savedReview.getId());
 
         return savedReview;
     }
@@ -67,8 +75,10 @@ public class ReviewService {
      * @return the requested review
      */
     public Review getReview(Long id) {
-        return reviewRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException(
+        return reviewRepository
+                .findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
                         "Review not found: " + id));
     }
 }
