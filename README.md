@@ -23,23 +23,29 @@ Analyze GitHub repositories with static analysis and AI-powered code review usin
 
 </p>
 
----
+## 🌐 Live Demo
+Experience ReviewLens AI instantly without local setup.
 
-# 🌐 Live Demo
+🖥️ **Frontend**
 
-Frontend
+https://reviewlens-frontend-avas.onrender.com/
 
-```
-https://YOUR_FRONTEND_URL.onrender.com
-```
+### 🚀 **Start Here**
 
-Backend API
+1. Sign in with your GitHub account.
+2. Select any public GitHub repository.
+3. Click **Review Repository**.
+4. Wait for the AI-generated review.
 
-```
-https://YOUR_BACKEND_URL.onrender.com
-```
+> 💡 Recommended Browser: Google Chrome or Microsoft Edge.
 
----
+<details>
+<summary>Backend API</summary>
+
+https://reviewlens-ai-zy5f.onrender.com/
+
+</details>
+
 
 # 📖 Overview
 
@@ -300,14 +306,14 @@ This project demonstrates practical experience with:
 
 ---
 
-# 👨‍💻 Author
+# 👩‍💻 Author
 
 ## Xingran Ma
 
 **B.Sc. Computer Science**  
 **The University of British Columbia (UBC)**
 
-Interested in Backend Engineering, Cloud Computing, AI Infrastructure, Distributed Systems, and Applied AI.
+Interested in Backend Engineering, Cloud Computing, Distributed Systems, and Applied AI.
 
 GitHub: https://github.com/starstarrr
 
