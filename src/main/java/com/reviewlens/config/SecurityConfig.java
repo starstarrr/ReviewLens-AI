@@ -51,9 +51,14 @@ public class SecurityConfig {
                         .defaultSuccessUrl(
                                 frontendUrl,
                                 true)
-                        .failureUrl(
-                                frontendUrl
-                                        + "/?oauthError=true"));
+                        .failureHandler((request, response, exception) -> {
+
+                            System.err.println("===== OAuth FAILED =====");
+                            exception.printStackTrace();
+
+                            response.sendRedirect(
+                                    frontendUrl + "/?oauthError=true");
+                        }));
 
         return http.build();
     }
